@@ -5060,9 +5060,20 @@ static void ggml_backend_cuda_device_get_memory(ggml_backend_dev_t dev, size_t *
     if (err != cudaSuccess) {
         (void)cudaGetLastError();
         GGML_LOG_WARN("%s: cudaMemGetInfo failed (%s), returning 0/0\n", __func__, cudaGetErrorString(err));
+#if defined(GGML_USE_HIP)
+        cudaDeviceProp prop;
+        CUDA_CHECK(cudaGetDeviceProperties(&prop, ggml_cuda_get_physical_device(ctx->device)));
+
+        *total = prop.totalGlobalMem;
+        *free  = prop.totalGlobalMem;
+
+        GGML_LOG_WARN("%s: hipMemGetInfo failed (%s), using device VRAM: %zu MiB\\n",
+                      __func__, cudaGetErrorString(err), *total / (1024 * 1024));
+#else
         *free = 0;
         *total = 0;
         return;
+#endif
     }
 
 // ref: https://github.com/ggml-org/llama.cpp/pull/17368
